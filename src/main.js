@@ -1,12 +1,14 @@
 import Vue from 'vue'
 import App from './App.vue'
-import router from './router'
 import store from './store'
 
 Vue.config.productionTip = false
 
+import routerGenerator from './util/router-generator'
+const router = routerGenerator(require.context("./views", true, /\.vue$/))
+
 new Vue({
   router,
   store,
-  render: function (h) { return h(App) }
+  render: h => h(App)
 }).$mount('#app')
