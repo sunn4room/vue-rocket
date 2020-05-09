@@ -5,115 +5,62 @@ import NOFOUND from "./404.vue";
 
 Vue.use(VueRouter);
 
-export default {
-  routes: [],
-  addRootRoute(context, rootid) {
-    if (!context) throw "this is no context";
-    if (!rootid) rootid = "";
+export default function(context) {
+  // validate
+  if (!context) throw "this is no context";
 
-    if (this.routes.find((route) => route.rootid == rootid)) {
-      throw "this root is already exist";
-    }
+  const keys = context
+    .keys()
+    .sort()
+    .filter((key) => /\.vue$/.test(key) && !/component/.test(key));
+  if (keys.length == 0) throw "this context has no vue key!";
 
-    // filter vue key
-    const keys = context
-      .keys()
-      .sort()
-      .filter((key) => /\.(js|vue)$/.test(key) && !/component/.test(key));
-    if (keys.length == 0) throw "this context has no js or vue key!";
-
-    // handle each vue file key
-    keys
-      .filter((key) => /\.vue$/.test(key) && /\/index\.vue$/.test(key))
-      .forEach((key) => {
-        const path = key.substring(0, key.length - 10).split("/");
-        path[0] = "/" + rootid;
-        this.insertRouteWithView(this.findParent(path), path[path.length - 1], context(key));
-      });
-    keys
-      .filter((key) => /\.vue$/.test(key) && !/\/index\.vue$/.test(key))
-      .forEach((key) => {
-        const path = key.substring(0, key.length - 4).split("/");
-        path[0] = "/" + rootid;
-        this.insertRouteWithView(this.findParent(path), path[path.length - 1], context(key));
-      });
-    keys
-      .filter((key) => /\.js$/.test(key) && /\/index\.js$/.test(key))
-      .forEach((key) => {
-        const path = key.substring(0, key.length - 9).split("/");
-        path[0] = "/" + rootid;
-        this.insertRoute(this.findParent(path), path[path.length - 1], context(key));
-      });
-    keys
-      .filter((key) => /\.js$/.test(key) && !/\/index\.js$/.test(key))
-      .forEach((key) => {
-        const path = key.substring(0, key.length - 3).split("/");
-        path[0] = "/" + rootid;
-        this.insertRoute(this.findParent(path), path[path.length - 1], context(key));
-      });
-
-    console.log(JSON.stringify(this.routes, null, 2))
-  },
-
-  findParent(path) {
-    let parent = this.routes;
+  const routes = [];
+  keys.forEach((key) => {
+    const path = /\/index\.vue$/.test(key)
+      ? key.substring(0, key.length - 10).split("/")
+      : key.substring(0, key.length - 4).split("/");
+    path[0] = "/";
+    let parent = routes;
     for (let i = 0; i < path.length - 1; i++) {
-      const temp = parent.find((route) => route.pathName == path[i]);
+      const temp = parent.find((route) => route.path == path[i]);
       if (temp) {
         if (!temp.children) temp.children = [];
         parent = temp.children;
       } else {
-        const r = {
-          pathName: path[i],
+        const route = {
           path: path[i],
           component: defaultIndex,
           children: [],
         };
-        parent.push(r);
-        parent = r.children;
+        parent.push(route);
+        parent = route.children;
       }
     }
-    return parent
-  },
-
-  insert(parent, current, newRoute) {
-    const index = parent.findIndex((route) => {
-      return route.pathName == current;
-    });
-    if (index >= 0) {
-      parent[index] = { ...parent[index], ...newRoute };
-    } else {
-      parent.push(newRoute);
-    }
-  },
-
-  insertRoute(parent, current, route) {
-    const newRoute = route.default
-    if (!newRoute.path) newRoute.path = current
-    newRoute.pathName = current
-    this.insert(parent, current, newRoute)
-  },
-
-  insertRouteWithView(parent, current, view) {
-    let newRoute = {
-      pathName: current,
-      path: current,
-      component: view.default
+    
+    const route = {
+      ...(context(key).route ? context(key).route : {}),
+      path: path[path.length - 1],
+      component: context(key).default
     };
-    if (view.route) newRoute = { ...newRoute, ...view.route };
-    this.insert(parent, current, newRoute)
-  },
+    const index = parent.findIndex(
+      (route) => route.path == path[path.length - 1]
+    );
+    if (index >= 0) {
+      parent[index] = { ...parent[index], ...route };
+    } else {
+      parent.push(route);
+    }
+  });
 
-  generate() {
-    // use routes to construct VueRouter object and return
-    this.routes.push({
-      path: "/*",
-      component: NOFOUND,
-    });
-    return new VueRouter({
-      mode: "history",
-      base: process.env.BASE_URL,
-      routes: this.routes,
-    });
-  },
-};
+  routes.push({
+    path: "/*",
+    component: NOFOUND
+  })
+
+  return new VueRouter({
+    mode: "history",
+    base: process.env.BASE_URL,
+    routes,
+  });
+}

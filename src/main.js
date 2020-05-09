@@ -4,11 +4,13 @@ import RouterView from './util/RouterView.vue'
 Vue.config.productionTip = false
 
 import routerGenerator from './util/router-generator'
-routerGenerator.addRootRoute(require.context("./views", true, /\.(vue|js)$/))
-const router = routerGenerator.generate()
+const router = routerGenerator(require.context("./views", true, /\.(vue|js)$/))
+
+import storeGenerator from './util/store-generator'
+const store = storeGenerator(require.context("./store", true, /\.js$/))
 
 new Vue({
   router,
-  // store,
+  store,
   render: h => h(RouterView)
 }).$mount('#app')
