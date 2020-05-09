@@ -64,6 +64,9 @@ export default {
       pathName: path[path.length - 1],
       path: path[path.length - 1],
       component: view.default,
+      meta: {
+        tracer: [...tracer]
+      }
     };
     if (view.route) newRoute = { ...newRoute, ...view.route };
     if (newRoute.redirect && !/^\//.test(newRoute.redirect)) {
