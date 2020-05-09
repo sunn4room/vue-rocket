@@ -11,56 +11,65 @@ export default function(context) {
 
   const keys = context
     .keys()
-    .sort()
     .filter((key) => /\.vue$/.test(key) && !/component/.test(key));
   if (keys.length == 0) throw "this context has no vue key!";
 
   const routes = [];
-  keys.forEach((key) => {
-    const path = /\/index\.vue$/.test(key)
-      ? key.substring(0, key.length - 10).split("/")
-      : key.substring(0, key.length - 4).split("/");
-    path[0] = "/";
-    let parent = routes;
-    for (let i = 0; i < path.length - 1; i++) {
-      const temp = parent.find((route) => route.path == path[i]);
-      if (temp) {
-        if (!temp.children) temp.children = [];
-        parent = temp.children;
-      } else {
-        const route = {
-          path: path[i],
-          component: defaultIndex,
-          children: [],
-        };
-        parent.push(route);
-        parent = route.children;
-      }
-    }
-    
-    const route = {
-      ...(context(key).route ? context(key).route : {}),
-      path: path[path.length - 1],
-      component: context(key).default
-    };
-    const index = parent.findIndex(
-      (route) => route.path == path[path.length - 1]
-    );
-    if (index >= 0) {
-      parent[index] = { ...parent[index], ...route };
-    } else {
-      parent.push(route);
-    }
-  });
+  keys
+    .filter((key) => !/\/index\.vue$/.test(key))
+    .forEach((key) => {
+      const path = key.substring(0, key.length - 4).split("/");
+      path[0] = "/";
+      addRoute(routes, path, context(key));
+    });
+  keys
+    .filter((key) => /\/index\.vue$/.test(key)).sort().reverse()
+    .forEach((key) => {
+      const path = key.substring(0, key.length - 10).split("/");
+      path[0] = "/";
+      addRoute(routes, path, context(key));
+    });
 
   routes.push({
     path: "/*",
-    component: NOFOUND
-  })
+    component: NOFOUND,
+  });
 
   return new VueRouter({
     mode: "history",
-    base: process.env.BASE_URL,
     routes,
   });
+}
+
+function addRoute(routes, path, view) {
+  let parent = routes;
+  for (let i = 0; i < path.length - 1; i++) {
+    const temp = parent.find((route) => route.path == path[i]);
+    if (temp) {
+      if (!temp.children) temp.children = [];
+      parent = temp.children;
+    } else {
+      const route = {
+        path: path[i],
+        component: defaultIndex,
+        children: [],
+      };
+      parent.push(route);
+      parent = route.children;
+    }
+  }
+
+  const route = {
+    path: path[path.length - 1],
+    component: view.default,
+    ...(view.route || {}),
+  };
+  const index = parent.findIndex(
+    (route) => route.path == path[path.length - 1]
+  );
+  if (index >= 0) {
+    parent[index] = { ...parent[index], ...route };
+  } else {
+    parent.push(route);
+  }
 }
