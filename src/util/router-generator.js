@@ -7,11 +7,11 @@ Vue.use(VueRouter);
 
 export default {
   routes: [],
-  addViewRoute(context, rootString) {
+  addRootRoute(context, rootid) {
     if (!context) throw "this is no context";
-    if (!rootString) rootString = "";
+    if (!rootid) rootid = "";
 
-    if (this.routes.find((route) => route.path == "/" + rootString)) {
+    if (this.routes.find((route) => route.rootid == rootid)) {
       throw "this root is already exist";
     }
 
@@ -19,33 +19,47 @@ export default {
     const keys = context
       .keys()
       .sort()
-      .filter((key) => /\.vue$/.test(key) && !/component/.test(key));
-    if (keys.length == 0) throw "this context has no vue file!";
+      .filter((key) => /\.(js|vue)$/.test(key) && !/component/.test(key));
+    if (keys.length == 0) throw "this context has no js or vue key!";
 
     // handle each vue file key
     keys
-      .filter((key) => /\/index\.vue$/.test(key))
+      .filter((key) => /\.vue$/.test(key) && /\/index\.vue$/.test(key))
       .forEach((key) => {
         const path = key.substring(0, key.length - 10).split("/");
-        path[0] = "/" + rootString;
-        this.insertViewRoute(path, context(key));
+        path[0] = "/" + rootid;
+        this.insertRouteWithView(this.findParent(path), path[path.length - 1], context(key));
       });
     keys
-      .filter((key) => !/\/index\.vue$/.test(key))
+      .filter((key) => /\.vue$/.test(key) && !/\/index\.vue$/.test(key))
       .forEach((key) => {
         const path = key.substring(0, key.length - 4).split("/");
-        path[0] = "/" + rootString;
-        this.insertViewRoute(path, context(key));
+        path[0] = "/" + rootid;
+        this.insertRouteWithView(this.findParent(path), path[path.length - 1], context(key));
       });
+    keys
+      .filter((key) => /\.js$/.test(key) && /\/index\.js$/.test(key))
+      .forEach((key) => {
+        const path = key.substring(0, key.length - 9).split("/");
+        path[0] = "/" + rootid;
+        this.insertRoute(this.findParent(path), path[path.length - 1], context(key));
+      });
+    keys
+      .filter((key) => /\.js$/.test(key) && !/\/index\.js$/.test(key))
+      .forEach((key) => {
+        const path = key.substring(0, key.length - 3).split("/");
+        path[0] = "/" + rootid;
+        this.insertRoute(this.findParent(path), path[path.length - 1], context(key));
+      });
+
+    console.log(JSON.stringify(this.routes, null, 2))
   },
 
-  insertViewRoute(path, view) {
-    const tracer = [];
+  findParent(path) {
     let parent = this.routes;
     for (let i = 0; i < path.length - 1; i++) {
       const temp = parent.find((route) => route.pathName == path[i]);
       if (temp) {
-        tracer.push(temp.path);
         if (!temp.children) temp.children = [];
         parent = temp.children;
       } else {
@@ -56,39 +70,38 @@ export default {
           children: [],
         };
         parent.push(r);
-        tracer.push(r.path);
         parent = r.children;
       }
     }
-    let newRoute = {
-      pathName: path[path.length - 1],
-      path: path[path.length - 1],
-      component: view.default,
-      meta: {
-        tracer: [...tracer]
-      }
-    };
-    if (view.route) newRoute = { ...newRoute, ...view.route };
-    if (newRoute.redirect && !/^\//.test(newRoute.redirect)) {
-      while (newRoute.redirect.indexOf("../") == 0) {
-        newRoute.redirect = newRoute.redirect.substring(3);
-        if (tracer.length != 0) tracer.pop();
-        else throw "redirect is error";
-      }
-      newRoute.redirect =
-        tracer.join("/") +
-        (newRoute.redirect == "" ? "" : "/" + newRoute.redirect);
-      if (newRoute.redirect[1] == "/")
-        newRoute.redirect = newRoute.redirect.substring(1);
-    }
+    return parent
+  },
+
+  insert(parent, current, newRoute) {
     const index = parent.findIndex((route) => {
-      return route.pathName == path[path.length - 1];
+      return route.pathName == current;
     });
     if (index >= 0) {
-      parent[index] = { ...temp, ...newRoute };
+      parent[index] = { ...parent[index], ...newRoute };
     } else {
       parent.push(newRoute);
     }
+  },
+
+  insertRoute(parent, current, route) {
+    const newRoute = route.default
+    if (!newRoute.path) newRoute.path = current
+    newRoute.pathName = current
+    this.insert(parent, current, newRoute)
+  },
+
+  insertRouteWithView(parent, current, view) {
+    let newRoute = {
+      pathName: current,
+      path: current,
+      component: view.default
+    };
+    if (view.route) newRoute = { ...newRoute, ...view.route };
+    this.insert(parent, current, newRoute)
   },
 
   generate() {
