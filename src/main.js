@@ -5,7 +5,6 @@ Vue.config.productionTip = false
 
 import routerGenerator from './util/router-generator'
 routerGenerator.addViewRoute(require.context("./views", true, /\.vue$/))
-routerGenerator.addViewRoute(require.context("./views", true, /\.vue$/), "sunny")
 const router = routerGenerator.generate()
 
 new Vue({
